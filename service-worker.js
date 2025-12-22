@@ -1,10 +1,8 @@
-const CACHE_NAME = 'avalon-v1';
+const CACHE_NAME = 'avalon-v2';
 const urlsToCache = [
-  '/Avalon/',
-  '/index.html',
+  './',
+  './index.html',
   './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
   'https://unpkg.com/react@18/umd/react.production.min.js',
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
   'https://unpkg.com/@babel/standalone/babel.min.js',
@@ -17,7 +15,13 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        // Try to cache icons but don't fail if they don't exist
+        return cache.addAll(urlsToCache).then(() => {
+          return Promise.allSettled([
+            cache.add('./icon-192.png').catch(() => console.log('icon-192.png not found')),
+            cache.add('./icon-512.png').catch(() => console.log('icon-512.png not found'))
+          ]);
+        });
       })
   );
   self.skipWaiting();
