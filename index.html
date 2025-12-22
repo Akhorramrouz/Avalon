@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avalon - The Resistance</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="description" content="Play Avalon: The Resistance - A social deduction game of hidden roles, quests, and betrayal">
+  <meta name="theme-color" content="#7c3aed">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-512.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Avalon">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slide-up {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .animate-fade-in {
+      animation: fade-in 0.6s ease-out;
+    }
+    
+    .animate-slide-up {
+      animation: slide-up 0.5s ease-out;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/Avalon/service-worker.js')
+          .then(reg => console.log('Service Worker registered'))
+          .catch(err => console.log('Service Worker registration failed'));
+      });
+    }
+
+    // PWA Install Prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      // Show install button if available
+      const installBtn = document.getElementById('installBtn');
+      if (installBtn) {
+        installBtn.style.display = 'block';
+      }
+    });
+
+    // Lucide icons as React components
+    const Users = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+    );
+
+    const EyeOff = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+        <line x1="2" x2="22" y1="2" y2="22"></line>
+      </svg>
+    );
+
+    const ArrowRight = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12h14"></path>
+        <path d="m12 5 7 7-7 7"></path>
+      </svg>
+    );
+
+    const Check = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    );
+
+    const CheckBig = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    );
+
+    const X = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 6 6 18"></path>
+        <path d="m6 6 12 12"></path>
+      </svg>
+    );
+
+    const ChevronLeft = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m15 18-6-6 6-6"></path>
+      </svg>
+    );
+
+    const Crown = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"></path>
+      </svg>
+    );
+
+    const Skull = () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="9" cy="12" r="1"></circle>
+        <circle cx="15" cy="12" r="1"></circle>
+        <path d="M8 20v2h8v-2"></path>
+        <path d="m12.5 17-.5-1-.5 1h1z"></path>
+        <path d="M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20"></path>
+      </svg>
+    );
+
+    // Official quest configurations for standard player counts
+    const OFFICIAL_QUEST_CONFIG = {
+      5: [2, 3, 2, 3, 3],
+      6: [2, 3, 4, 3, 4],
+      7: [2, 3, 3, 4, 4],
+      8: [3, 4, 4, 5, 5],
+      9: [3, 4, 4, 5, 5],
+      10: [3, 4, 4, 5, 5]
+    };
+
+    // Generate quest configuration for any player count 5-20
+    const getQuestConfig = (playerCount) => {
+      // If we have official config, use it
+      if (OFFICIAL_QUEST_CONFIG[playerCount]) {
+        return OFFICIAL_QUEST_CONFIG[playerCount];
+      }
+      
+      // For 11-20 players, calculate team sizes proportionally
+      // Base percentages: roughly 40%, 50%, 50%, 60%, 60% of players
+      const quest1 = Math.max(2, Math.round(playerCount * 0.35));
+      const quest2 = Math.max(3, Math.round(playerCount * 0.45));
+      const quest3 = Math.max(3, Math.round(playerCount * 0.45));
+      const quest4 = Math.max(4, Math.round(playerCount * 0.55));
+      const quest5 = Math.max(4, Math.round(playerCount * 0.55));
+      
+      return [quest1, quest2, quest3, quest4, quest5];
+    };
+
+    // Returns true if quest requires 2 fails (quest 4 with 7+ players)
+    const requiresTwoFails = (questNum, playerCount) => {
+      return questNum === 3 && playerCount >= 7; // questNum is 0-indexed, so 3 = 4th quest
+    };
+
+    // Avalon role definitions
+    const ROLES = {
+      merlin: {
+        name: "Merlin",
+        team: "good",
+        description: "Knows all evil players. Must guide good without revealing identity.",
+        color: "#3b82f6"
+      },
+      percival: {
+        name: "Percival",
+        team: "good",
+        description: "Knows Merlin and Morgana, but not which is which.",
+        color: "#8b5cf6"
+      },
+      loyalServant: {
+        name: "Loyal Servant of Arthur",
+        team: "good",
+        description: "A faithful servant with no special knowledge.",
+        color: "#10b981"
+      },
+      morgana: {
+        name: "Morgana",
+        team: "evil",
+        description: "Appears as Merlin to Percival. Knows other evil players.",
+        color: "#dc2626"
+      },
+      assassin: {
+        name: "Assassin",
+        team: "evil",
+        description: "Knows other evil players. Can assassinate Merlin at the end.",
+        color: "#7f1d1d"
+      },
+      mordred: {
+        name: "Mordred",
+        team: "evil",
+        description: "Unknown to Merlin. Knows other evil players.",
+        color: "#991b1b"
+      },
+      oberon: {
+        name: "Oberon",
+        team: "evil",
+        description: "Unknown to other evil players and doesn't know them.",
+        color: "#be123c"
+      },
+      minion: {
+        name: "Minion of Mordred",
+        team: "evil",
+        description: "A servant of evil. Knows other evil players.",
+        color: "#ef4444"
+      }
+    };
+
+    // Role distribution based on player count
+    const getRoleDistribution = (playerCount) => {
+      const distributions = {
+        5: [
+          { role: 'merlin', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'minion', count: 1 },
+          { role: 'loyalServant', count: 2 }
+        ],
+        6: [
+          { role: 'merlin', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'minion', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'loyalServant', count: 2 }
+        ],
+        7: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'loyalServant', count: 2 }
+        ],
+        8: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'minion', count: 1 },
+          { role: 'loyalServant', count: 3 }
+        ],
+        9: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'minion', count: 1 },
+          { role: 'loyalServant', count: 3 }
+        ],
+        10: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'loyalServant', count: 4 }
+        ],
+        11: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'minion', count: 1 },
+          { role: 'loyalServant', count: 4 }
+        ],
+        12: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'minion', count: 2 },
+          { role: 'loyalServant', count: 4 }
+        ],
+        13: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'minion', count: 2 },
+          { role: 'loyalServant', count: 5 }
+        ],
+        14: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'minion', count: 3 },
+          { role: 'loyalServant', count: 5 }
+        ],
+        15: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'minion', count: 3 },
+          { role: 'loyalServant', count: 6 }
+        ],
+        16: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'minion', count: 4 },
+          { role: 'loyalServant', count: 6 }
+        ],
+        17: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'minion', count: 4 },
+          { role: 'loyalServant', count: 7 }
+        ],
+        18: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'minion', count: 5 },
+          { role: 'loyalServant', count: 7 }
+        ],
+        19: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'minion', count: 5 },
+          { role: 'loyalServant', count: 8 }
+        ],
+        20: [
+          { role: 'merlin', count: 1 },
+          { role: 'percival', count: 1 },
+          { role: 'assassin', count: 1 },
+          { role: 'morgana', count: 1 },
+          { role: 'mordred', count: 1 },
+          { role: 'oberon', count: 1 },
+          { role: 'minion', count: 6 },
+          { role: 'loyalServant', count: 8 }
+        ]
+      };
+      
+      return distributions[playerCount] || distributions[5];
+    };
+
+    const assignRoles = (players, playerCount) => {
+      const distribution = getRoleDistribution(playerCount);
+      const roles = [];
+      
+      distribution.forEach(({ role, count }) => {
+        for (let i = 0; i < count; i++) {
+          roles.push(role);
+        }
+      });
+      
+      // Shuffle roles
+      for (let i = roles.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [roles[i], roles[j]] = [roles[j], roles[i]];
+      }
+      
+      return players.map((name, index) => ({
+        name,
+        role: roles[index]
+      }));
+    };
+
+    function AvalonGame() {
+      const [step, setStep] = useState(1);
+      const [playerCount, setPlayerCount] = useState(5);
+      const [playerNames, setPlayerNames] = useState([]);
+      const [currentNameIndex, setCurrentNameIndex] = useState(0);
+      const [currentName, setCurrentName] = useState('');
+      const [assignedRoles, setAssignedRoles] = useState([]);
+      const [revealIndex, setRevealIndex] = useState(0);
+      const [isRevealing, setIsRevealing] = useState(false);
+      
+      // Game state
+      const [currentQuestIndex, setCurrentQuestIndex] = useState(0);
+      const [leaderIndex, setLeaderIndex] = useState(0);
+      const [proposedTeam, setProposedTeam] = useState([]);
+      const [votes, setVotes] = useState({});
+      const [questResults, setQuestResults] = useState([]);
+      const [rejectedCount, setRejectedCount] = useState(0);
+      const [gamePhase, setGamePhase] = useState('team-building');
+      const [questCards, setQuestCards] = useState({});
+      const [winner, setWinner] = useState(null);
+      const [assassinTarget, setAssassinTarget] = useState(null);
+
+      const questConfig = getQuestConfig(playerCount);
+      const currentTeamSize = questConfig[currentQuestIndex];
+      const successCount = questResults.filter(r => r === 'success').length;
+      const failCount = questResults.filter(r => r === 'fail').length;
+
+      const handlePlayerCountSubmit = (e) => {
+        e.preventDefault();
+        const count = parseInt(playerCount);
+        if (count >= 5 && count <= 20) {
+          setPlayerNames(new Array(count).fill(''));
+          setStep(2);
+        }
+      };
+
+      const handleAddName = (e) => {
+        e.preventDefault();
+        if (currentName.trim()) {
+          const newNames = [...playerNames];
+          newNames[currentNameIndex] = currentName.trim();
+          setPlayerNames(newNames);
+          
+          if (currentNameIndex < playerCount - 1) {
+            setCurrentNameIndex(currentNameIndex + 1);
+            setCurrentName('');
+          } else {
+            setStep(3);
+          }
+        }
+      };
+
+      const handleConfirmPlayers = () => {
+        const assigned = assignRoles(playerNames, playerCount);
+        setAssignedRoles(assigned);
+        setStep(4);
+      };
+
+      const handleStartReveal = () => {
+        setRevealIndex(0);
+        setIsRevealing(false);
+        setStep(5);
+      };
+
+      const handleRevealRole = () => {
+        setIsRevealing(true);
+      };
+
+      const handleNextPlayer = () => {
+        if (revealIndex < assignedRoles.length - 1) {
+          setRevealIndex(revealIndex + 1);
+          setIsRevealing(false);
+        } else {
+          // Start the game
+          setLeaderIndex(Math.floor(Math.random() * assignedRoles.length));
+          setGamePhase('team-building');
+          setStep(6);
+        }
+      };
+
+      const toggleTeamMember = (index) => {
+        if (proposedTeam.includes(index)) {
+          setProposedTeam(proposedTeam.filter(i => i !== index));
+        } else if (proposedTeam.length < currentTeamSize) {
+          setProposedTeam([...proposedTeam, index]);
+        }
+      };
+
+      const handleProposeTeam = () => {
+        if (proposedTeam.length === currentTeamSize) {
+          setGamePhase('voting');
+          setVotes({});
+        }
+      };
+
+      const handleVote = (playerIndex, approve) => {
+        const newVotes = { ...votes, [playerIndex]: approve };
+        setVotes(newVotes);
+        
+        // Check if all players have voted
+        if (Object.keys(newVotes).length === assignedRoles.length) {
+          const approveCount = Object.values(newVotes).filter(v => v).length;
+          const rejectCount = Object.values(newVotes).filter(v => !v).length;
+          
+          if (approveCount > rejectCount) {
+            // Team approved
+            setGamePhase('quest');
+            setQuestCards({});
+            setRejectedCount(0);
+          } else {
+            // Team rejected
+            if (rejectedCount >= 4) {
+              // Evil wins - 5 rejections
+              setWinner('evil');
+              setStep(7);
+            } else {
+              setRejectedCount(rejectedCount + 1);
+              setLeaderIndex((leaderIndex + 1) % assignedRoles.length);
+              setProposedTeam([]);
+              setVotes({});
+              setGamePhase('team-building');
+            }
+          }
+        }
+      };
+
+      const handleQuestCard = (playerIndex, success) => {
+        const newQuestCards = { ...questCards, [playerIndex]: success };
+        setQuestCards(newQuestCards);
+        
+        // Check if all team members have played
+        if (Object.keys(newQuestCards).length === proposedTeam.length) {
+          const failCards = Object.values(newQuestCards).filter(v => !v).length;
+          const twoFailsRequired = requiresTwoFails(currentQuestIndex, playerCount);
+          const questFailed = twoFailsRequired ? failCards >= 2 : failCards >= 1;
+          
+          const newResults = [...questResults, questFailed ? 'fail' : 'success'];
+          setQuestResults(newResults);
+          
+          const newSuccessCount = newResults.filter(r => r === 'success').length;
+          const newFailCount = newResults.filter(r => r === 'fail').length;
+          
+          if (newSuccessCount >= 3) {
+            // Good potentially wins - check for assassination
+            setGamePhase('assassination');
+            setStep(7);
+          } else if (newFailCount >= 3) {
+            // Evil wins
+            setWinner('evil');
+            setStep(7);
+          } else {
+            // Continue to next quest
+            setCurrentQuestIndex(currentQuestIndex + 1);
+            setLeaderIndex((leaderIndex + 1) % assignedRoles.length);
+            setProposedTeam([]);
+            setVotes({});
+            setQuestCards({});
+            setGamePhase('team-building');
+          }
+        }
+      };
+
+      const handleAssassination = (targetIndex) => {
+        setAssassinTarget(targetIndex);
+        const target = assignedRoles[targetIndex];
+        if (target.role === 'merlin') {
+          setWinner('evil');
+        } else {
+          setWinner('good');
+        }
+      };
+
+      const handleRestart = () => {
+        setStep(1);
+        setPlayerCount(5);
+        setPlayerNames([]);
+        setCurrentNameIndex(0);
+        setCurrentName('');
+        setAssignedRoles([]);
+        setRevealIndex(0);
+        setIsRevealing(false);
+        setCurrentQuestIndex(0);
+        setLeaderIndex(0);
+        setProposedTeam([]);
+        setVotes({});
+        setQuestResults([]);
+        setRejectedCount(0);
+        setGamePhase('team-building');
+        setQuestCards({});
+        setWinner(null);
+        setAssassinTarget(null);
+      };
+
+      const currentPlayer = assignedRoles[revealIndex];
+      const currentRole = currentPlayer ? ROLES[currentPlayer.role] : null;
+      const currentLeader = assignedRoles[leaderIndex];
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4 md:p-8 relative overflow-hidden">
+          {/* Atmospheric background effects */}
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-20 left-10 w-96 h-96 bg-blue-500 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500 rounded-full blur-3xl"></div>
+            <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-pink-500 rounded-full blur-3xl"></div>
+          </div>
+
+          {/* Decorative elements */}
+          <div className="absolute inset-0 opacity-10" style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+            backgroundSize: '40px 40px'
+          }}></div>
+
+          <div className="relative max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="text-center mb-12 animate-fade-in">
+              <h1 className="text-6xl md:text-7xl font-bold mb-4 tracking-tight" style={{
+                fontFamily: 'Georgia, serif',
+                textShadow: '0 0 30px rgba(139, 92, 246, 0.5), 0 0 60px rgba(59, 130, 246, 0.3)'
+              }}>
+                AVALON
+              </h1>
+              <p className="text-lg text-purple-200 tracking-widest" style={{ fontFamily: 'Georgia, serif' }}>
+                The Resistance
+              </p>
+              
+              {/* Install App Button (shows on supported browsers) */}
+              <button
+                id="installBtn"
+                style={{ display: 'none' }}
+                onClick={() => {
+                  if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                      if (choiceResult.outcome === 'accepted') {
+                        console.log('App installed');
+                      }
+                      deferredPrompt = null;
+                      document.getElementById('installBtn').style.display = 'none';
+                    });
+                  }
+                }}
+                className="mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-xl transition-all"
+              >
+                📲 Install App (Works Offline!)
+              </button>
+            </div>
+
+            {/* Step 1: Player Count */}
+            {step === 1 && (
+              <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 md:p-12 shadow-2xl border border-white/20 animate-slide-up">
+                <div className="flex items-center justify-center mb-8">
+                  <Users />
+                </div>
+                <h2 className="text-3xl font-bold text-center mb-8" style={{ fontFamily: 'Georgia, serif' }}>
+                  How many players will join this quest?
+                </h2>
+                <form onSubmit={handlePlayerCountSubmit} className="space-y-6">
+                  <div>
+                    <div className="flex items-center justify-center gap-4 mb-4">
+                      <button
+                        type="button"
+                        onClick={() => setPlayerCount(Math.max(5, playerCount - 1))}
+                        className="w-16 h-16 bg-purple-600 hover:bg-purple-700 text-white font-bold text-3xl rounded-xl transition-all"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={playerCount}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          if (val === '') {
+                            setPlayerCount(5);
+                          } else {
+                            const num = parseInt(val);
+                            setPlayerCount(Math.min(Math.max(num, 5), 20));
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value) || 5;
+                          setPlayerCount(Math.min(Math.max(val, 5), 20));
+                        }}
+                        className="w-32 bg-white/10 border-2 border-purple-400/50 rounded-2xl px-6 py-4 text-4xl text-center font-bold focus:outline-none focus:border-purple-400 transition-all"
+                        style={{ fontFamily: 'Georgia, serif' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPlayerCount(Math.min(20, playerCount + 1))}
+                        className="w-16 h-16 bg-purple-600 hover:bg-purple-700 text-white font-bold text-3xl rounded-xl transition-all"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <input
+                      type="range"
+                      min="5"
+                      max="20"
+                      value={playerCount}
+                      onChange={(e) => setPlayerCount(parseInt(e.target.value))}
+                      className="w-full h-2 bg-purple-400/30 rounded-lg appearance-none cursor-pointer"
+                      style={{
+                        accentColor: '#7c3aed'
+                      }}
+                    />
+                    <div className="flex justify-between text-xs text-purple-300 mt-2">
+                      <span>5</span>
+                      <span>10</span>
+                      <span>15</span>
+                      <span>20</span>
+                    </div>
+                    <p className="text-sm text-purple-200 text-center mt-3">Players: 5-20 (tap buttons, type, or slide)</p>
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-2xl transition-all transform hover:scale-105 flex items-center justify-center gap-3 shadow-lg"
+                  >
+                    Continue <ArrowRight />
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Step 2: Enter Names */}
+            {step === 2 && (
+              <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 md:p-12 shadow-2xl border border-white/20 animate-slide-up">
+                <h2 className="text-3xl font-bold text-center mb-8" style={{ fontFamily: 'Georgia, serif' }}>
+                  Enter Player Names
+                </h2>
+                <div className="mb-6">
+                  <div className="flex justify-center gap-2 mb-8 flex-wrap">
+                    {[...Array(playerCount)].map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-2 w-8 rounded-full transition-all ${
+                          i < currentNameIndex ? 'bg-green-400' :
+                          i === currentNameIndex ? 'bg-blue-400' : 'bg-white/20'
+                        }`}
+                      ></div>
+                    ))}
+                  </div>
+                </div>
+                <form onSubmit={handleAddName} className="space-y-6">
+                  <div>
+                    <label className="block text-sm text-purple-200 mb-2 text-center">
+                      Player {currentNameIndex + 1} of {playerCount}
+                    </label>
+                    <input
+                      type="text"
+                      value={currentName}
+                      onChange={(e) => setCurrentName(e.target.value)}
+                      placeholder="Enter name..."
+                      className="w-full bg-white/10 border-2 border-purple-400/50 rounded-2xl px-6 py-4 text-xl text-center focus:outline-none focus:border-purple-400 transition-all"
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={!currentName.trim()}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-2xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3 shadow-lg"
+                  >
+                    {currentNameIndex < playerCount - 1 ? (
+                      <>Next Player <ArrowRight /></>
+                    ) : (
+                      <>Finish <Check /></>
+                    )}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Step 3: Confirm Players */}
+            {step === 3 && (
+              <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 md:p-12 shadow-2xl border border-white/20 animate-slide-up">
+                <h2 className="text-3xl font-bold text-center mb-8" style={{ fontFamily: 'Georgia, serif' }}>
+                  Confirm Players
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 max-h-96 overflow-y-auto">
+                  {playerNames.map((name, index) => (
+                    <div
+                      key={index}
+                      className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 flex items-center gap-3"
+                    >
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center font-bold">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 text-lg">{name}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => {
+                      setStep(2);
+                      setCurrentNameIndex(0);
+                      setCurrentName('');
+                    }}
+                    className="flex-1 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold py-4 px-8 rounded-2xl transition-all flex items-center justify-center gap-3"
+                  >
+                    <ChevronLeft /> Edit
+                  </button>
+                  <button
+                    onClick={handleConfirmPlayers}
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-2xl transition-all transform hover:scale-105 flex items-center justify-center gap-3 shadow-lg"
+                  >
+                    Assign Roles <ArrowRight />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Roles Assigned */}
+            {step === 4 && (
+              <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 md:p-12 shadow-2xl border border-white/20 animate-slide-up text-center">
+                <div className="mb-8">
+                  <div className="w-20 h-20 mx-auto bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mb-6">
+                    <Check />
+                  </div>
+                  <h2 className="text-3xl font-bold mb-4" style={{ fontFamily: 'Georgia, serif' }}>
+                    Roles Have Been Assigned
+                  </h2>
+                  <p className="text-purple-200 text-lg mb-8">
+                    Pass the device around. Each player will see their secret role.
+                  </p>
+                </div>
+                <button
+                  onClick={handleStartReveal}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-12 rounded-2xl transition-all transform hover:scale-105 shadow-lg"
+                >
+                  Start Revealing Roles
+                </button>
+              </div>
+            )}
+
+            {/* Step 5: Reveal Roles */}
+            {step === 5 && currentPlayer && currentRole && (
+              <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 md:p-12 shadow-2xl border border-white/20 animate-slide-up">
+                <div className="text-center mb-8">
+                  <div className="text-sm text-purple-200 mb-2">
+                    Player {revealIndex + 1} of {assignedRoles.length}
+                  </div>
+                  <h2 className="text-4xl font-bold mb-8" style={{ fontFamily: 'Georgia, serif' }}>
+                    {currentPlayer.name}
+                  </h2>
+                </div>
+
+                {!isRevealing ? (
+                  <div className="text-center space-y-6">
+                    <EyeOff />
+                    <p className="text-xl text-purple-200">
+                      Make sure only {currentPlayer.name} can see the screen
+                    </p>
+                    <button
+                      onClick={handleRevealRole}
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-12 rounded-2xl transition-all transform hover:scale-105 shadow-lg"
+                    >
+                      Reveal My Role
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-8 animate-fade-in">
+                    <div className="text-center">
+                      <div
+                        className="inline-block px-8 py-4 rounded-2xl text-2xl font-bold mb-4"
+                        style={{
+                          backgroundColor: currentRole.color,
+                          boxShadow: `0 0 30px ${currentRole.color}80`
+                        }}
+                      >
+                        {currentRole.name}
+                      </div>
+                      <div className={`text-lg font-semibold ${
+                        currentRole.team === 'good' ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        Team: {currentRole.team === 'good' ? 'Good' : 'Evil'}
+                      </div>
+                    </div>
+
+                    <div className="bg-white/10 rounded-2xl p-6 border border-white/20">
+                      <h3 className="font-bold mb-3 text-lg">Your Mission:</h3>
+                      <p className="text-purple-100">{currentRole.description}</p>
+                    </div>
+
+                    <button
+                      onClick={handleNextPlayer}
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-2xl transition-all transform hover:scale-105 flex items-center justify-center gap-3 shadow-lg"
+                    >
+                      {revealIndex < assignedRoles.length - 1 ? (
+                        <>Next Player <ArrowRight /></>
+                      ) : (
+                        <>Start Game <Check /></>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 6: Game Play */}
+            {step === 6 && (
+              <div className="space-y-6 animate-slide-up">
+                {/* Quest Progress */}
+                <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-6 shadow-2xl border border-white/20">
+                  <div className="flex justify-center gap-4 mb-4">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-lg border-2 ${
+                          i < questResults.length
+                            ? questResults[i] === 'success'
+                              ? 'bg-blue-500 border-blue-300'
+                              : 'bg-red-500 border-red-300'
+                            : i === currentQuestIndex
+                            ? 'bg-purple-500 border-purple-300'
+                            : 'bg-white/10 border-white/30'
+                        }`}
+                      >
+                        {i < questResults.length ? (
+                          questResults[i] === 'success' ? <CheckBig /> : <X />
+                        ) : (
+                          i + 1
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-center text-sm text-purple-200">
+                    Quest {currentQuestIndex + 1} • Team Size: {currentTeamSize}
+                    {requiresTwoFails(currentQuestIndex, playerCount) && ' • Requires 2 Fails'}
+                  </div>
+                  <div className="text-center mt-2">
+                    <span className="text-blue-400 font-bold">Good: {successCount}</span>
+                    {' • '}
+                    <span className="text-red-400 font-bold">Evil: {failCount}</span>
+                  </div>
+                </div>
+
+                {/* Team Building Phase */}
+                {gamePhase === 'team-building' && (
+                  <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 shadow-2xl border border-white/20">
+                    <div className="flex items-center justify-center gap-3 mb-6">
+                      <Crown />
+                      <h3 className="text-2xl font-bold">
+                        Leader: {currentLeader.name}
+                      </h3>
+                    </div>
+                    <p className="text-center text-purple-200 mb-6">
+                      Select {currentTeamSize} players for Quest {currentQuestIndex + 1}
+                      {rejectedCount > 0 && ` (${rejectedCount} rejection${rejectedCount > 1 ? 's' : ''})`}
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+                      {assignedRoles.map((player, index) => (
+                        <button
+                          key={index}
+                          onClick={() => toggleTeamMember(index)}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            proposedTeam.includes(index)
+                              ? 'bg-purple-600 border-purple-400'
+                              : 'bg-white/10 border-white/20 hover:border-purple-400'
+                          }`}
+                        >
+                          {player.name}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={handleProposeTeam}
+                      disabled={proposedTeam.length !== currentTeamSize}
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-2xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    >
+                      Propose Team ({proposedTeam.length}/{currentTeamSize})
+                    </button>
+                  </div>
+                )}
+
+                {/* Voting Phase */}
+                {gamePhase === 'voting' && (
+                  <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 shadow-2xl border border-white/20">
+                    <h3 className="text-2xl font-bold text-center mb-6">
+                      Vote on Proposed Team
+                    </h3>
+                    <div className="bg-white/10 rounded-xl p-4 mb-6">
+                      <p className="text-center font-semibold mb-2">Proposed Team:</p>
+                      <p className="text-center text-purple-200">
+                        {proposedTeam.map(i => assignedRoles[i].name).join(', ')}
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      {assignedRoles.map((player, index) => (
+                        <div key={index} className="flex items-center justify-between bg-white/10 rounded-xl p-4">
+                          <span>{player.name}</span>
+                          {votes[index] === undefined ? (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleVote(index, true)}
+                                className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-bold"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleVote(index, false)}
+                                className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-bold"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className={`font-bold ${votes[index] ? 'text-green-400' : 'text-red-400'}`}>
+                              {votes[index] ? 'Approved' : 'Rejected'}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quest Phase */}
+                {gamePhase === 'quest' && (
+                  <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 shadow-2xl border border-white/20">
+                    <h3 className="text-2xl font-bold text-center mb-6">
+                      Quest {currentQuestIndex + 1} - Team Members Vote
+                    </h3>
+                    <div className="space-y-3">
+                      {proposedTeam.map((playerIndex) => {
+                        const player = assignedRoles[playerIndex];
+                        return (
+                          <div key={playerIndex} className="flex items-center justify-between bg-white/10 rounded-xl p-4">
+                            <span>{player.name}</span>
+                            {questCards[playerIndex] === undefined ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleQuestCard(playerIndex, true)}
+                                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-bold"
+                                >
+                                  Success
+                                </button>
+                                <button
+                                  onClick={() => handleQuestCard(playerIndex, false)}
+                                  className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-bold"
+                                >
+                                  Fail
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-purple-400 font-bold">
+                                Voted
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 7: Assassination or Game Over */}
+            {step === 7 && (
+              <div className="backdrop-blur-xl bg-white/10 rounded-3xl p-8 md:p-12 shadow-2xl border border-white/20 animate-slide-up text-center">
+                {gamePhase === 'assassination' && !winner ? (
+                  <>
+                    <Skull />
+                    <h2 className="text-4xl font-bold mb-4" style={{ fontFamily: 'Georgia, serif' }}>
+                      Assassination Attempt!
+                    </h2>
+                    <p className="text-purple-200 text-lg mb-8">
+                      Good has completed 3 quests! Evil players, identify and assassinate Merlin to steal victory.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {assignedRoles.map((player, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleAssassination(index)}
+                          className="p-4 rounded-xl bg-white/10 border-2 border-white/20 hover:border-red-400 hover:bg-red-900/30 transition-all"
+                        >
+                          {player.name}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-8">
+                      <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 ${
+                        winner === 'good' ? 'bg-gradient-to-br from-blue-400 to-green-500' : 'bg-gradient-to-br from-red-500 to-red-700'
+                      }`}>
+                        {winner === 'good' ? <CheckBig /> : <X />}
+                      </div>
+                      <h2 className="text-4xl font-bold mb-4" style={{ fontFamily: 'Georgia, serif' }}>
+                        {winner === 'good' ? 'Good Triumphs!' : 'Evil Prevails!'}
+                      </h2>
+                      {assassinTarget !== null && (
+                        <p className="text-purple-200 text-lg mb-4">
+                          The Assassin targeted {assignedRoles[assassinTarget].name}
+                          {assignedRoles[assassinTarget].role === 'merlin' ? ' - Merlin was found!' : ' - but it was not Merlin!'}
+                        </p>
+                      )}
+                      <div className="bg-white/10 rounded-2xl p-6 mb-6">
+                        <h3 className="font-bold mb-4 text-xl">Role Reveals:</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left">
+                          {assignedRoles.map((player, index) => {
+                            const role = ROLES[player.role];
+                            return (
+                              <div key={index} className="bg-white/10 rounded-lg p-3">
+                                <div className="font-bold">{player.name}</div>
+                                <div className={role.team === 'good' ? 'text-green-400' : 'text-red-400'}>
+                                  {role.name}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleRestart}
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-12 rounded-2xl transition-all transform hover:scale-105 shadow-lg"
+                    >
+                      Start New Game
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<AvalonGame />, document.getElementById('root'));
+  </script>
+</body>
+</html>
