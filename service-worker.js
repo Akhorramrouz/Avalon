@@ -1,10 +1,10 @@
 const CACHE_NAME = 'avalon-v1';
 const urlsToCache = [
   '/Avalon/',
-  '/Avalon/index.html',
-  '/Avalon/manifest.json',
-  '/Avalon/icon-192.png',
-  '/Avalon/icon-512.png',
+  '/index.html',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
   'https://unpkg.com/react@18/umd/react.production.min.js',
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
   'https://unpkg.com/@babel/standalone/babel.min.js',
