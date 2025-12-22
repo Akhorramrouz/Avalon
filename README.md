@@ -61,11 +61,3 @@ This ensures balanced gameplay for any group size!
 3. Quest 3: Select 8 players
 4. Quest 4: Select 10 players (needs 2 fails to fail)
 5. Quest 5: Select 10 players
-
-## ✅ Now Working:
-
-- ✅ You can enter ANY number from 5 to 20
-- ✅ Quest sizes automatically adjust
-- ✅ Game balance maintained
-- ✅ Official rules for 5-10 players
-- ✅ Smart scaling for 11-20 players
